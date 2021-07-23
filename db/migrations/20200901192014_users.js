@@ -4,7 +4,7 @@ exports.up = function (knex) {
     tbl.string('username', 128).notNullable().unique().index();
     tbl.string('password', 512).notNullable();
     tbl.string('email', 128).notNullable().unique();
-    tbl.integer('permissions', 8).notNullable();
+    tbl.integer('permissions', 8).notNullable().defaultTo(0);
     tbl.timestamps(true, true);
   }).raw(`
       CREATE TABLE IF NOT EXISTS session (

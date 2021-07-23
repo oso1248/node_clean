@@ -10,6 +10,7 @@ function getCookie(cookieName) {
 function deleteCookie(cookieName) {
   document.cookie = cookieName + '=; max-age=0; expires=0';
 }
+let logoutRelocate = `/login.html`;
 async function logout() {
   await fetch('/api/auth/logout', { method: 'post' })
     .then((res) => res.json())
@@ -25,9 +26,10 @@ async function logout() {
             cache.delete('');
           });
         deleteCookie('BudApp');
-        window.location.replace('/login.html');
+        deleteCookie('perm');
+        window.location.replace(logoutRelocate);
         return;
-      } else if (window.location != '/login.html') {
+      } else if (window.location != logoutRelocate) {
         caches
           .keys()
           .then((keys) => {
@@ -37,7 +39,8 @@ async function logout() {
             cache.delete('');
           });
         deleteCookie('BudApp');
-        window.location.replace('/login.html');
+        deleteCookie('perm');
+        window.location.replace(logoutRelocate);
         return;
       } else {
         caches
@@ -49,7 +52,8 @@ async function logout() {
             cache.delete('');
           });
         deleteCookie('BudApp');
-        window.location.replace('/login.html');
+        deleteCookie('perm');
+        window.location.replace(logoutRelocate);
       }
     })
     .catch((err) => {

@@ -14,7 +14,7 @@
   "author": "Adam Coulson",
   "license": "MIT",
   "bugs": {
-    "url": ""
+    "url": "https://github.com/oso1248/node_clean.git"
   },
   "homepage": "",
   "dependencies": {
@@ -23,6 +23,7 @@
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
     "express-session": "^1.17.1",
+    "joi": "^17.4.1",
     "knex": "^0.21.5",
     "luxon": "^1.26.0",
     "pg": "^8.3.3",

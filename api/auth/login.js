@@ -1,40 +1,78 @@
+const schema = require('../validations/valUsers');
+
 const express = require('express');
 const db = require('../dbConfig');
 const bcrypt = require('bcryptjs');
+const { json } = require('express');
 const router = express.Router();
 
-function getPass(name) {
-  return db('users').select('username', 'password', 'permissions').where({ username: name }).first();
+async function getPass(name) {
+  let { rows } = await db.raw(`
+    SELECT username, "password", permissions
+    FROM users
+    WHERE username = '${name}'
+  `);
+  return rows;
 }
+
+async function getUser(data) {
+  let { rows } = await db.raw(`
+    SELECT username
+    FROM users
+    WHERE username = '${data}'
+  `);
+  return rows;
+}
+
+async function getEmail(data) {
+  let { rows } = await db.raw(`
+    SELECT email
+    FROM users
+    WHERE email = '${data}'
+  `);
+  return rows;
+}
+
 async function deleteSess(name) {
   await db.raw(`
-   DELETE
-   FROM session
-   WHERE sess -> 'user' ->> 'username' = '${name}'
+    DELETE
+    FROM session
+    WHERE sess -> 'user' ->> 'username' = '${name}'
   `);
   return { msg: 'null' };
 }
 
-// -> /api/login
-router.post('/login', (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ msg: 'username & password required' });
-  }
+async function registerUser(data) {
+  let { rows } = await db.raw(`
+    INSERT
+    INTO users (username, email, password, permissions)
+    VALUES ('${data.username}', '${data.email}', '${data.password}', ${data.permissions})
+    RETURNING username, permissions
+  `);
 
-  getPass(username)
-    .then((user) => {
-      if (user && bcrypt.compareSync(password, user.password)) {
-        req.session.user = {
-          username: user.username,
-          permissions: user.permissions,
-        };
-        res.status(200).json({ msg: 'pass', permissions: req.session.user.permissions });
-      } else {
-        res.status(400).json({ msg: 'invalid credentials' });
-      }
-    })
-    .catch((err) => res.status(500).json(err.detail));
+  return rows;
+}
+
+// -> /api/login
+router.post('/login', async (req, res) => {
+  let resStatus = 200;
+  try {
+    const result = await schema.login.validateAsync(req.body);
+    let user = await getPass(result.username);
+    user = user[0];
+    if (user && bcrypt.compareSync(result.password, user.password)) {
+      req.session.user = {
+        username: user.username,
+        permissions: user.permissions,
+      };
+      res.status(resStatus).json({ details: [{ message: 'pass', permissions: req.session.user.permissions }] });
+    } else {
+      let err = { details: [{ message: 'Invalid Credentials' }] };
+      throw err;
+    }
+  } catch (err) {
+    res.status(resStatus).json(err);
+  }
 });
 
 router.post('/logout', (req, res) => {
@@ -53,22 +91,45 @@ router.post('/logout', (req, res) => {
   });
 });
 
-// Manpower
-async function getManpower(data) {
-  let { rows } = await db.raw(`
-    SELECT id, brewer, position, note, shift
-    FROM manpower
-    WHERE shift = '${data.shift}' AND created_at >= '${data.start}' AND created_at <= '${data.stop}'
-    ORDER BY brewer;
-  `);
-  return rows;
-}
-router.post('/manpower/get', (req, res) => {
-  getManpower(req.body)
-    .then((data) => {
-      res.status(200).json(data);
-    })
-    .catch((err) => res.status(500).json({ msg: err.detail }));
+router.post('/register', async (req, res) => {
+  let resStatus = 200;
+  try {
+    let result = await schema.register.validateAsync(req.body);
+    result.password = bcrypt.hashSync(req.body.password, 6);
+    result.permissions = 1;
+    let resp = await registerUser(result);
+    resp[0].message = `pass`;
+    req.session.user = {
+      username: resp[0].username,
+      permissions: resp[0].permissions,
+    };
+
+    res.status(resStatus).json({ details: resp });
+  } catch (err) {
+    res.status(resStatus).json(err);
+  }
+});
+
+router.post('/register/get/user', async (req, res) => {
+  let resStatus = 200;
+  try {
+    let result = await schema.username.validateAsync(req.body);
+    let resp = await getUser(result.username);
+    res.status(resStatus).json({ details: resp });
+  } catch (err) {
+    res.status(resStatus).json(err);
+  }
+});
+
+router.post('/register/get/email', async (req, res) => {
+  let resStatus = 200;
+  try {
+    let result = await schema.email.validateAsync(req.body);
+    let resp = await getEmail(result.email);
+    res.status(resStatus).json({ details: resp });
+  } catch (err) {
+    res.status(resStatus).json(err);
+  }
 });
 
 module.exports = router;
